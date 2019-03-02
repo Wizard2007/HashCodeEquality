@@ -2,7 +2,7 @@
 
 namespace ArrayHashCodeEquality.Comparers
 {
-    public sealed class ByteArrayEqualityComparer : IEqualityComparer<byte[]>
+    public sealed unsafe class ByteArrayEqualityComparer : IEqualityComparer<byte[]>
     {
         // You could make this a per-instance field with a constructor parameter
         private static readonly EqualityComparer<byte> elementComparer
@@ -14,25 +14,38 @@ namespace ArrayHashCodeEquality.Comparers
             {
                 return true;
             }
+
             if (first == null || second == null)
             {
                 return false;
             }
+
             if (first.Length != second.Length)
             {
                 return false;
             }
-            for (int i = 0; i < first.Length; i++)
+
+            fixed(byte* ptFirst = first, ptSecond = second )
             {
-                if (!elementComparer.Equals(first[i], second[i]))
+                byte* ptFirstStart = ptFirst;
+                byte* ptFirstEnd = ptFirst + first.Length;
+                byte* ptSecondStart = ptSecond;
+
+                while(ptFirstStart < ptFirstEnd)
                 {
-                    return false;
+                    if(*ptFirst != *ptSecond)
+                    {
+                        return false;
+                    }
+                    ptFirstStart++;
+                    ptSecondStart++;
                 }
             }
+
             return true;
         }
 
-        public int GetHashCode(byte[] array)
+        public unsafe int GetHashCode(byte[] array)
         {
             unchecked
             {
@@ -40,11 +53,21 @@ namespace ArrayHashCodeEquality.Comparers
                 {
                     return 0;
                 }
+
                 int hash = 17;
-                foreach (byte element in array)
+
+                fixed (byte* ptArrayt = array)
                 {
-                    hash = hash * 31 + elementComparer.GetHashCode(element);
+                    byte* ptArraytStart = ptArrayt;
+                    byte* ptArraytEnd = ptArrayt + array.Length;
+                    
+                    while(ptArraytStart < ptArraytEnd)
+                    {
+                        hash = hash * 31 + (*ptArraytStart).GetHashCode();
+                        ptArraytStart++;
+                    }
                 }
+
                 return hash;
             }
         }
